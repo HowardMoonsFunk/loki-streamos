@@ -45,7 +45,7 @@ jobs:
       - name: Show build environment
         run: |
           echo "=== Arch Linux Version ==="
-          arch
+          cat /etc/os-release
           echo "=== Available disk space ==="
           df -h /
           echo "=== Kernel Version ==="
