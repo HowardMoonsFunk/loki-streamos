@@ -40,16 +40,13 @@ jobs:
             mtools \
             squashfs-tools \
             efibootmgr \
-            meson \
-            ninja \
             wayland \
-            wayland-protocols \
             libxkbcommon \
             cairo \
             pango \
-            scdoc \
             pkgconf \
             gcc \
+            make \
             git \
             coreutils
           echo "=== Disk before build ==="

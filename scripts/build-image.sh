@@ -217,20 +217,11 @@ install -Dm755 "${PROJECT_ROOT}/launcher/menu.sh" "$ROOTFS_DIR/opt/launcher/menu
 log_info "Building wvkbd ${WVKBD_TAG} on build host (DESTDIR -> rootfs)..."
 WVKBD_BUILD="$(mktemp -d)"
 build_wvkbd_host() {
-    local need_install=0
-    for cmd in meson ninja gcc; do
-        command -v "$cmd" &>/dev/null || need_install=1
-    done
-    if [[ "$need_install" -eq 1 ]]; then
-        pacman -S --noconfirm --needed \
-            meson ninja wayland wayland-protocols libxkbcommon cairo pango scdoc pkgconf gcc
-    fi
     curl -fsSL -L "${WVKBD_TARBALL_URL}" -o "${WVKBD_BUILD}/wvkbd.tar.gz"
     tar -xzf "${WVKBD_BUILD}/wvkbd.tar.gz" -C "${WVKBD_BUILD}"
     cd "${WVKBD_BUILD}"/wvkbd-*
-    meson setup build --prefix=/usr -Dbuildtype=release
-    ninja -C build
-    DESTDIR="$ROOTFS_DIR" ninja -C build install
+    make LAYOUT=mobintl PREFIX=/usr
+    make LAYOUT=mobintl PREFIX=/usr DESTDIR="$ROOTFS_DIR" install
     cd "$PROJECT_ROOT"
 }
 build_wvkbd_host
