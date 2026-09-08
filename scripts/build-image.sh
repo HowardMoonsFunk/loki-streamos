@@ -282,6 +282,7 @@ parted -s "$IMG_FILE" mklabel gpt
 parted -s "$IMG_FILE" mkpart primary fat32 1MiB "${BOOT_SIZE_MB}MiB"
 parted -s "$IMG_FILE" mkpart primary ext4 "${BOOT_SIZE_MB}MiB" 100%
 parted -s "$IMG_FILE" set 1 esp on
+sgdisk -e "$IMG_FILE" 2>/dev/null || true  # fix backup GPT on sparse/truncated images
 
 BOOT_OFFSET=$((1024 * 1024))
 SYSTEM_OFFSET=$((BOOT_SIZE_MB * 1024 * 1024))
