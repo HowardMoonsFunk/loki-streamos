@@ -73,15 +73,16 @@
 ## 📋 Planned
 
 ### Phase 5: Diagnostics & Feedback Loop
-**Status**: Diagnostics script ready, waiting for physical hardware testing
+**Status**: Diagnostics + input test scripts ready, waiting for physical hardware testing
 
 **Tasks:**
 - [ ] User flashes image to USB
 - [ ] Boot Loki Zero from USB
-- [ ] Run `./scripts/diagnostics.sh`
+- [ ] Run `./scripts/diagnostics.sh` (includes `streamos-input-test --collect`)
+- [ ] Run `streamos-input-test` for interactive touch/controller verification
 - [ ] Return tarball with hardware detection results
 - [ ] Parse results and identify failing components
-- [ ] Iterate on kernel config / udev rules as needed
+- [ ] Iterate on kernel config / udev rules as needed (no touch calibration unless proven)
 
 **Blockers**: Physical Loki Zero hardware required
 
@@ -91,6 +92,7 @@
 **Tasks:**
 - [ ] Replace placeholder `/opt/launcher/run.sh` with real Wayland app
 - [ ] Implement controller-driven UI (720p, text-large)
+- [ ] Touch as first-class fallback: Wi-Fi/BT pairing, text entry, diagnostics navigation
 - [ ] Menu options:
   - [ ] Moonlight (connect to Sunshine server)
   - [ ] Steam Remote Play
@@ -140,6 +142,7 @@ From `docs/HARDWARE.md`:
 4. Bluetooth chipset and firmware location
 5. Battery interface (BAT0 vs BAT1)
 6. Suspend state support (S3 vs S4)
+7. Touchscreen interface/driver path (USB HID vs I2C-HID) and display-coordinate orientation
 
 ---
 
@@ -189,9 +192,10 @@ From `docs/HARDWARE.md`:
 | ARCHITECTURE.md | ✅ Complete | 100% |
 | ADR-001-BASE-OS.md | ✅ Complete | 100% |
 | TESTING.md | ✅ Complete | 100% (framework) |
-| scripts/build-image.sh | ✅ Complete | 95% (untested) |
+| scripts/build-image.sh | ✅ Complete | 95% (CI validation pending) |
 | scripts/diagnostics.sh | ✅ Complete | 100% |
-| .github/workflows/ | ✅ Complete | 95% (untested) |
+| scripts/streamos-input-test.sh | ✅ Complete | 100% (framework) |
+| .github/workflows/ | ✅ Complete | 95% (CI validation pending) |
 
 ---
 
@@ -206,7 +210,9 @@ From `docs/HARDWARE.md`:
 - [ ] Image successfully boots on Loki Zero (requires physical hardware)
 
 ### Phase 5 Success (Hardware Verification)
-- [ ] All critical components detected (GPU, controller, Wi-Fi)
+- [ ] All critical components detected (GPU, controller, Wi-Fi, touchscreen)
+- [ ] Touchscreen detected and reports input events
+- [ ] Touchscreen coordinates/orientation correct in launcher and after resume
 - [ ] No major kernel errors in boot logs
 - [ ] Display renders at native 1280×720
 - [ ] Gamescope starts and accepts input
@@ -217,7 +223,8 @@ From `docs/HARDWARE.md`:
 - [x] Reproducible build system (CI/CD works)
 - [x] Minimal, appliance-focused OS image
 - [ ] Boots on physical Loki Zero (requires hardware)
-- [ ] No keyboard/mouse needed (controller-only)
+- [ ] Touch or controller usable for setup (Wi-Fi, diagnostics)
+- [ ] No keyboard/mouse needed (controller + touch fallback)
 - [ ] Connects to Wi-Fi via UI
 - [ ] Streams games via Moonlight at 720p60
 
@@ -260,7 +267,8 @@ loki-streamos/
 ├── launcher/                    Placeholder for UI (future)
 ├── scripts/
 │   ├── build-image.sh           Main image builder
-│   └── diagnostics.sh           Hardware verification script
+│   ├── diagnostics.sh           Hardware verification script
+│   └── streamos-input-test.sh   Touch/controller input test & capture
 ├── docs/
 │   ├── HARDWARE.md              Research & component status
 │   ├── ARCHITECTURE.md          Boot flow & system design

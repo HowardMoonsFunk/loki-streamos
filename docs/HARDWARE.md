@@ -6,7 +6,7 @@
 - **RAM**: 6 GB LPDDR4
 - **Display**: 6" 1280×720 IPS (161 PPI)
 - **Storage**: 128 GB eMMC (internal Windows SSD - do not touch)
-- **Input**: Built-in gamepad/controller
+- **Input**: Built-in gamepad/controller, capacitive touchscreen (6" panel)
 - **Connectivity**: Wi-Fi 6 (802.11ax), Bluetooth 5.2
 - **Audio**: 3.5mm jack, onboard stereo speakers
 - **Battery**: 4000 mAh
@@ -51,6 +51,20 @@
 - **Testing**: `cat /dev/input/event*` should report button presses
 - **Reference**: Bazzite images confirm D-pad, analog sticks, triggers, bumpers all work
 - **Notes**: May need custom keymap for power/volume buttons
+
+### Touchscreen
+- **Type**: Capacitive panel on 6" 1280×720 display
+- **Likely Interface**: USB HID and/or I2C-HID (NEEDS_PHYSICAL_TEST)
+- **Status**: NEEDS_PHYSICAL_TEST — driver path and coordinate orientation unknown
+- **Driver Stack**: `hid-multitouch`, `goodix`, `ft5x06`, or similar mainline driver (TBD)
+- **Testing**:
+  - Identify: `libinput list-devices`, `/proc/bus/input/devices`, `udevadm info`, `lsusb`, I2C scan
+  - Events: `libinput debug-events --device=<node>` or `evtest`
+  - Full capture: `streamos-input-test --collect` (included in diagnostics tarball)
+- **UX role**: First-class fallback control path on a 6" handheld — Wi-Fi/BT pairing, text entry, and emergency diagnostics should work via touch even when controller-driven UI is primary
+- **Calibration**: Do **not** hard-code transforms until physical testing proves X/Y swap, invert, or offset is required
+- **Moonlight**: Touch behavior is client-dependent (mouse emulation vs native touch injection); verify separately from launcher shell
+- **Reference**: Compare against Bazzite/ChimeraOS touch behavior on Loki Zero
 
 ### Power Button / Volume Buttons
 - **Integration**: Likely mapped to ACPI or GPIO events
@@ -199,6 +213,8 @@ After image boots on Loki Zero:
 
 - [ ] Display works, 1280×720 detected
 - [ ] Controller detected: `cat /proc/bus/input/devices`
+- [ ] Touchscreen detected and reports input events
+- [ ] Touchscreen coordinates/orientation correct in launcher and after resume
 - [ ] Wi-Fi scan: `iw dev wlan0 scan`
 - [ ] Bluetooth scan: `bluetoothctl scan on`
 - [ ] Audio out: `aplay /usr/share/sounds/freedesktop/stereo/complete.oga`
@@ -210,5 +226,5 @@ After image boots on Loki Zero:
 
 ---
 
-**Last Updated**: 2024-09-08
-**Status**: Phase 1 Complete (research), awaiting Phase 2 (architecture)
+**Last Updated**: 2026-09-08
+**Status**: Phase 1 Complete (research), Phase 4+ physical validation pending

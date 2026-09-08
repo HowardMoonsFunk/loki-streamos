@@ -92,6 +92,7 @@ pacstrap -C "${PROJECT_ROOT}/base/pacman.conf" -K "$ROOTFS_DIR" \
   curl wget git openssh sudo \
   squashfs-tools efibootmgr \
   mkinitcpio \
+  libinput evtest i2c-tools \
   --needed
 
 log_info "Rootfs installed to: $ROOTFS_DIR"
@@ -140,6 +141,11 @@ SUBSYSTEM=="input", ATTRS{name}=="*GamepadXInput*", TAG+="uaccess"
 # Common gamepads
 SUBSYSTEM=="input", ATTRS{id/vendor}=="0x045e", TAG+="uaccess"
 SUBSYSTEM=="input", ATTRS{id/vendor}=="0x054c", TAG+="uaccess"
+
+# Touchscreen — first-class fallback for Wi-Fi/BT pairing, text entry, diagnostics
+SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", TAG+="uaccess"
+SUBSYSTEM=="input", ATTRS{name}=="*touch*", TAG+="uaccess"
+SUBSYSTEM=="input", ATTRS{name}=="*Touch*", TAG+="uaccess"
 EOF
 
 mkdir -p "$ROOTFS_DIR/etc/systemd"
@@ -174,8 +180,9 @@ exec gamescope -W 1280 -H 720 --immediate-mode -- true
 EOF
 chmod +x "$ROOTFS_DIR/opt/launcher/run.sh"
 
-# Install diagnostics script into the image
+# Install diagnostics and input test scripts into the image
 install -Dm755 "${PROJECT_ROOT}/scripts/diagnostics.sh" "$ROOTFS_DIR/usr/local/bin/loki-diagnostics"
+install -Dm755 "${PROJECT_ROOT}/scripts/streamos-input-test.sh" "$ROOTFS_DIR/usr/local/bin/streamos-input-test"
 
 # ============================================================================
 # Step 5: Bootloader configuration

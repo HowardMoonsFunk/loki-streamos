@@ -128,6 +128,81 @@ sudo libinput debug-events
 
 ---
 
+### Touchscreen
+
+**Objective:** Verify capacitive touch is detected, oriented correctly for 1280×720, and usable as a first-class fallback (Wi-Fi/BT pairing, text entry, diagnostics) alongside the controller.
+
+**Identify the device:**
+```bash
+# Full capture (included in diagnostics tarball)
+sudo streamos-input-test --collect
+
+# Or manually:
+libinput list-devices
+cat /proc/bus/input/devices
+lsusb
+ls -la /dev/input/by-path/ /dev/input/by-id/
+udevadm info --query=all --name=/dev/input/eventN   # replace N with touch node
+
+# I2C-HID path (if present)
+ls /sys/bus/i2c/devices/
+i2cdetect -y 0   # repeat for each /dev/i2c-* bus
+ls /sys/class/hidraw/
+```
+
+**Verify events reach Wayland/Gamescope:**
+```bash
+# Find touch event node from libinput list-devices (Kernel: /dev/input/eventN)
+libinput debug-events --device=/dev/input/eventN
+# Tap display — expect BTN_TOUCH, ABS_X/Y or ABS_MT_POSITION_X/Y
+
+# With Gamescope/launcher running, repeat taps and confirm events correlate
+gamescope -W 1280 -H 720 --immediate-mode -- true &
+libinput debug-events --device=/dev/input/eventN
+```
+
+**Coordinate / orientation (1280×720):**
+```bash
+evtest /dev/input/eventN
+# Tap top-left → low X/Y; bottom-right → high X/Y (check ABS max values)
+# Record swap/invert if present — do NOT add calibration until confirmed on hardware
+```
+
+**Gesture checklist:**
+- [ ] Single tap registers
+- [ ] Drag/swipe registers continuous motion
+- [ ] Long-press (if driver exposes it)
+- [ ] Multi-touch (if ABS_MT_SLOT / second finger events appear)
+
+**Suspend/resume:**
+```bash
+systemctl suspend
+# Wake, then re-run libinput debug-events — touch must still work
+```
+
+**Launcher:**
+- [ ] Touchscreen detected and reports input events
+- [ ] Touchscreen coordinates/orientation correct in launcher and after resume
+- [ ] Touch usable for menu navigation when launcher UI exists (scroll, tap)
+- [ ] On-screen text entry fallback works for Wi-Fi password / pairing PIN
+
+**Moonlight (separate from launcher shell):**
+```bash
+# After Wi-Fi connected — observe touch during stream; record behavior:
+# - Mouse emulation (touch moves cursor / click)
+# - Native touch injection (host receives touch — Sunshine-dependent)
+# - No touch support (controller only)
+# Explicit Moonlight touch config may be needed; document observed mode.
+```
+
+**If fails:**
+- Check udev: `udevadm info --query=all --name=/dev/input/eventN | grep ID_INPUT_TOUCHSCREEN`
+- Check module: `dmesg | grep -iE 'hid|i2c|goodix|ft5|touch'`
+- Run `sudo streamos-input-test` (interactive) and attach output with diagnostics tarball
+- Do not add calibration udev/libinput quirks until physical testing proves they are required
+
+---
+
 ### Wi-Fi Connectivity
 
 **Objective:** Verify Wi-Fi adapter and connectivity
@@ -319,6 +394,7 @@ journalctl -b --no-pager | tail -50
 - [ ] Resume from suspend is quick (<2 seconds)
 - [ ] No errors in kernel logs after resume
 - [ ] Hardware state preserved (Wi-Fi connection, etc.)
+- [ ] Touchscreen still works after suspend/resume (re-test with `libinput debug-events`)
 
 **If fails:**
 - Check ACPI support: `dmesg | grep -i acpi`
@@ -349,6 +425,7 @@ gamescope -W 1280 -H 720 -- bash -c "echo 'Hello from Gamescope'; sleep 10"
 - [ ] Gamescope starts without errors
 - [ ] Display scales correctly to 1280×720
 - [ ] Gamepad input is recognized
+- [ ] Touch input reaches compositor (if panel present)
 - [ ] No GPU crashes or validation errors
 - [ ] Exits cleanly on signal
 
@@ -392,6 +469,7 @@ moonlight stream -app "Desktop" -1080p -60fps
 - [ ] Streaming video appears (any resolution)
 - [ ] Frame rate stable at 60 FPS
 - [ ] Controller input sent to game
+- [ ] Touch behavior documented (mouse emulation / native touch / none)
 - [ ] Audio plays from remote game
 - [ ] Can exit stream cleanly
 
@@ -410,12 +488,16 @@ After each test phase, run diagnostics and save output:
 ```bash
 sudo ./scripts/diagnostics.sh
 # Creates: loki-diagnostics-YYYYMMDD-HHMMSS.tar.gz
+
+# Optional: interactive touch verification + extra capture
+sudo streamos-input-test
+# Creates: streamos-input-test-YYYYMMDD-HHMMSS/ (attach alongside tarball)
 ```
 
 **Contents:**
 - System info (CPU, RAM, kernel)
 - GPU driver status
-- Input device listing
+- Input device listing (controller + touchscreen via `streamos-input-test --collect`)
 - Network interface status
 - Audio configuration
 - Battery/power status
@@ -436,6 +518,7 @@ sudo ./scripts/diagnostics.sh
 | Display (1280×720) | ? | TBD on hardware |
 | GPU Drivers (AMDGPU) | ? | TBD on hardware |
 | Controller Input | ? | TBD on hardware |
+| Touchscreen | ? | NEEDS_PHYSICAL_TEST — I2C-HID vs USB HID, orientation |
 | Wi-Fi Connectivity | ? | TBD on hardware |
 | Audio Output | ? | TBD on hardware |
 | Power Button | ? | TBD on hardware |

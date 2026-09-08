@@ -144,8 +144,14 @@ Application (Moonlight)
 ### 8. Controller Input
 - **systemd-logind** + HID drivers
 - Standard Linux `/dev/input/event*` stack
-- evdev calibration (optional via udev)
 - Gamepad input reaches Gamescope → Moonlight
+
+### 8b. Touchscreen Input
+- Capacitive panel on 6" 1280×720 display (USB HID and/or I2C-HID — TBD on hardware)
+- **libinput** + evdev; udev `ID_INPUT_TOUCHSCREEN` grants user access
+- First-class fallback alongside controller: Wi-Fi/BT pairing, text entry, diagnostics
+- No calibration layer in v1 — apply transforms only if physical testing proves they are needed
+- **Moonlight touch** tested separately (mouse emulation vs native touch injection varies by client/host)
 
 ### 9. Power Management
 - **systemd-logind** 
@@ -232,8 +238,9 @@ Partition 2 (ROOT, ext4, ~7.5GB)
 
 ### Input Events
 ```
-/dev/input/event0+   → Controller / Keyboard events
-    └─ Integrated gamepad: BTN_*, ABS_HAT0X, ABS_X, ABS_Y, etc.
+/dev/input/event0+   → Controller / touch / keyboard events
+    ├─ Integrated gamepad: BTN_*, ABS_HAT0X, ABS_X, ABS_Y, etc.
+    └─ Touchscreen: BTN_TOUCH, ABS_MT_* (identify via libinput list-devices)
 
 /dev/input/mice      → Mouse events (if attached, not common on Loki)
 ```

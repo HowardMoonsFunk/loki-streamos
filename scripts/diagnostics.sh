@@ -81,6 +81,26 @@ else
     echo "evtest not installed" > "$DIAG_DIR/input/controller-status.txt"
 fi
 
+# Touchscreen identification (libinput, udev, I2C/HID — no calibration applied)
+log "Collecting touchscreen / input path information..."
+mkdir -p "$DIAG_DIR/input/touchscreen"
+if [[ -x /usr/local/bin/streamos-input-test ]]; then
+    /usr/local/bin/streamos-input-test --collect --output "$DIAG_DIR/input/touchscreen" || true
+elif [[ -f "${BASH_SOURCE[0]%/*}/streamos-input-test.sh" ]]; then
+    bash "${BASH_SOURCE[0]%/*}/streamos-input-test.sh" --collect --output "$DIAG_DIR/input/touchscreen" || true
+else
+    echo "streamos-input-test not found" > "$DIAG_DIR/input/touchscreen/missing.txt"
+fi
+
+grep -i -E "touch|Touch|multitouch|hid-multitouch|goodix|ft5" /proc/bus/input/devices \
+    > "$DIAG_DIR/input/touchscreen-proc-filter.txt" 2>/dev/null \
+    || echo "No touch-related entries in /proc/bus/input/devices" > "$DIAG_DIR/input/touchscreen-proc-filter.txt"
+
+if command -v libinput &>/dev/null; then
+    libinput list-devices > "$DIAG_DIR/input/libinput-list-devices.txt" 2>/dev/null \
+        || echo "libinput list-devices failed" > "$DIAG_DIR/input/libinput-list-devices.txt"
+fi
+
 # ============================================================================
 # Networking (Wi-Fi & Bluetooth)
 # ============================================================================
@@ -235,6 +255,8 @@ Results should be included in `loki-diagnostics-YYYYMMDD.tar.gz`.
 
 ### Input
 - [ ] Controller detected: `cat /proc/bus/input/devices | grep -i gamepad`
+- [ ] Touchscreen detected and reports input events
+- [ ] Touchscreen coordinates/orientation correct in launcher and after resume
 - [ ] D-pad works
 - [ ] Analog sticks work
 - [ ] Shoulder buttons (L1/R1, L2/R2) work
@@ -283,6 +305,9 @@ loki-diagnostics-YYYYMMDD/
 │   └── amdgpu-modules.txt
 ├── input/
 │   ├── devices.txt
+│   ├── libinput-list-devices.txt
+│   ├── touchscreen-proc-filter.txt
+│   ├── touchscreen/          (streamos-input-test --collect output)
 │   └── controller-status.txt
 ├── network/
 │   ├── lspci-network.txt
