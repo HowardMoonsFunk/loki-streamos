@@ -80,6 +80,32 @@ jobs:
         run: |
           bash ./tools/flash/tests/run-dry-run-tests.sh
 
+      # Sparse .img files (truncate) hash the full logical size locally, but
+      # upload-artifact only transports allocated blocks (~2 GiB), so a separately
+      # downloaded image fails sha256sum -c. Materialize holes to zeros once the
+      # image is finalized, then regenerate the checksum from those exact bytes.
+      - name: Materialize image and regenerate checksum for artifact transport
+        run: |
+          cd build-artifacts
+          img="$(ls loki-streamos-*.img)"
+          logical="$(stat -c%s "$img")"
+          allocated="$(du -b "$img" | cut -f1)"
+          echo "Before materialize: logical=$logical bytes, allocated=$allocated bytes"
+          if [[ "$logical" != "$allocated" ]]; then
+            if ! fallocate -l "$logical" "$img" 2>/dev/null; then
+              echo "fallocate unavailable; copying to materialize sparse holes"
+              dd if="$img" of="${img}.materialized" bs=16M conv=fsync status=progress
+              mv "${img}.materialized" "$img"
+            fi
+            sync
+          fi
+          logical="$(stat -c%s "$img")"
+          allocated="$(du -b "$img" | cut -f1)"
+          echo "After materialize: logical=$logical bytes, allocated=$allocated bytes"
+          test "$logical" -eq "$allocated"
+          sha256sum "$(basename "$img")" > "$(basename "$img").sha256"
+          sha256sum -c "$(basename "$img").sha256"
+
       - name: Report artifact metadata
         run: |
           cd build-artifacts
@@ -89,18 +115,14 @@ jobs:
           echo "sha256=$(cat loki-streamos-*.sha256)" >> "$GITHUB_STEP_SUMMARY"
           df -h /
 
-      - name: Upload artifact
+      - name: Upload release artifact bundle
         uses: actions/upload-artifact@v4
         with:
-          name: loki-streamos-image
-          path: build-artifacts/loki-streamos-*.img
-          retention-days: 30
-
-      - name: Upload checksum
-        uses: actions/upload-artifact@v4
-        with:
-          name: loki-streamos-checksums
-          path: build-artifacts/*.sha256
+          name: loki-streamos-release
+          path: |
+            build-artifacts/loki-streamos-*.img
+            build-artifacts/loki-streamos-*.sha256
+          compression-level: 0
           retention-days: 30
 
       - name: Upload bmap (optional)
@@ -129,22 +151,21 @@ jobs:
     needs: build
 
     steps:
-      - name: Download image artifact
+      - name: Download release artifact bundle
         uses: actions/download-artifact@v4
         with:
-          name: loki-streamos-image
-          path: artifacts/image
-
-      - name: Download checksum artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: loki-streamos-checksums
-          path: artifacts/checksums
+          name: loki-streamos-release
+          path: artifacts
 
       - name: Verify image integrity
         run: |
-          cp artifacts/checksums/*.sha256 artifacts/image/
-          cd artifacts/image
-          sha256sum -c *.sha256
-          file *.img
-          du -h *.img
+          cd artifacts
+          ls -lh
+          test -f loki-streamos-*.img
+          test -f loki-streamos-*.sha256
+          sha256sum -c loki-streamos-*.sha256
+          file loki-streamos-*.img
+          logical=$(stat -c%s loki-streamos-*.img)
+          allocated=$(du -b loki-streamos-*.img | cut -f1)
+          echo "logical=$logical allocated=$allocated"
+          test "$logical" -eq "$allocated"
