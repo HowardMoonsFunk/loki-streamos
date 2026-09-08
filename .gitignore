@@ -36,7 +36,19 @@ dmesg-*.txt
 test-*.sh
 local-*.conf
 
-# Secrets
+# Secrets and credentials
 .env
-.env.local
+.env.*
+!.env.example
 secrets/
+credentials/
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+.git-credentials
+.netrc
