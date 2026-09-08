@@ -1,8 +1,8 @@
 # Loki StreamOS Project Status
 
-**Date**: September 8, 2024  
-**Current Phase**: 3 (Build System Implementation)  
-**Next Milestone**: Phase 4 (First Bootable Image)
+**Date**: September 8, 2026  
+**Current Phase**: 4 (First Bootable Image)  
+**Next Milestone**: Phase 5 (Physical Hardware Testing)
 
 ---
 
@@ -49,11 +49,13 @@
 ## ⏳ In Progress
 
 ### Phase 4: First Bootable Prototype
-**Status**: Build script ready, awaiting execution in full CI environment
+**Status**: CI pipeline fixed, first build in progress
 
 **Tasks:**
-- [ ] Test build-image.sh locally (in Arch-based environment)
-- [ ] Verify image generation completes without errors
+- [x] Fix build-image.sh package list (remove invalid amdgpu-dkms)
+- [x] Fix loopback partition handling and systemd-boot layout
+- [x] Add `dev` branch to GitHub Actions triggers
+- [ ] Verify image generation completes without errors (CI running)
 - [ ] Verify partitioning and loopback setup
 - [ ] Generate SHA-256 checksums
 - [ ] Test image size and dd-ability
@@ -225,9 +227,9 @@ From `docs/HARDWARE.md`:
 
 ### Immediate (This Week)
 1. ✅ Commit all Phase 3 work to git (DONE)
-2. [ ] Test build-image.sh in local Arch environment (if available)
-3. [ ] Prepare GitHub repository (push and GitHub Actions)
-4. [ ] Trigger first CI build
+2. ✅ Fix build-image.sh for Arch package names (DONE)
+3. ✅ Prepare GitHub repository — push to `dev`, enable Actions (DONE)
+4. [ ] Trigger and verify first CI build
 
 ### Short Term (Next Week)
 1. [ ] Download generated .img from GitHub Actions
@@ -283,6 +285,6 @@ loki-streamos/
 
 ---
 
-**Last Updated**: 2024-09-08  
+**Last Updated**: 2026-09-08  
 **Maintained By**: Claude (Anthropic)  
 **Status Tracker**: This file (update as progress continues)

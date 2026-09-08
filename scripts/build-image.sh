@@ -83,11 +83,11 @@ log_info "Step 1/6: Bootstrapping minimal Arch Linux..."
 
 pacstrap -C "${PROJECT_ROOT}/base/pacman.conf" -K "$ROOTFS_DIR" \
   base linux-lts linux-firmware linux-firmware-amdgpu \
-  mesa vulkan-radeon lib32-vulkan-radeon \
+  mesa vulkan-radeon \
   networkmanager iwd wpa_supplicant wireless-regdb \
   pipewire pipewire-alsa pipewire-pulse wireplumber \
   gamescope \
-  systemd systemd-boot systemd-resolved \
+  systemd \
   glibc gcc binutils less vim nano \
   curl wget git openssh sudo \
   squashfs-tools efibootmgr \
