@@ -53,8 +53,8 @@ jobs:
 
       - name: Build Loki StreamOS image
         run: |
-          chmod +x scripts/build-image.sh scripts/diagnostics.sh
-          sudo bash ./scripts/build-image.sh
+          chmod +x scripts/build-image.sh scripts/diagnostics.sh scripts/streamos-input-test.sh
+          bash ./scripts/build-image.sh
 
       - name: Verify image
         run: |
