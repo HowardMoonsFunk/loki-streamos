@@ -64,7 +64,7 @@ Minimal Arch-based live streaming OS for AYN Loki Zero:
 
 | Run | Commit | Failure |
 |-----|--------|---------|
-| [34241965895](https://github.com/HowardMoonsFunk/loki-streamos/actions/runs/34241965895) | `887f7d6` | Disk full installing wvkbd build-deps **inside chroot** |
+| [34242625644](https://github.com/HowardMoonsFunk/loki-streamos/actions/runs/34242625644) | `fc35e5f` | wvkbd tarball 404 (wrong sr.ht URL for tag 0.14.1) |
 
 **Fix in progress (local, not yet CI-green):**
 - Build wvkbd on CI **host**, not inside chroot (`DESTDIR` into rootfs)

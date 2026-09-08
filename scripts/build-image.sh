@@ -22,7 +22,8 @@ IMG_FILE="${BUILD_DIR}/loki-streamos-${BUILD_DATE}.img"
 CHECKSUM_FILE="${BUILD_DIR}/loki-streamos-${BUILD_DATE}.sha256"
 IMG_SIZE_GB=8
 BOOT_SIZE_MB=512
-WVKBD_VERSION="0.14.1"  # pinned upstream release — not a moving HEAD
+WVKBD_VERSION="0.14.1"  # pinned tag; tarball from GitHub mirror (sr.ht archive 404 for this tag)
+WVKBD_TARBALL_URL="https://github.com/jjsullivan5196/wvkbd/archive/refs/tags/${WVKBD_VERSION}.tar.gz"
 STREAMOS_VERSION="0.1.0-phase4"
 BUILD_COMMIT="${GITHUB_SHA:-$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)}"
 
@@ -224,8 +225,7 @@ build_wvkbd_host() {
         pacman -S --noconfirm --needed \
             meson ninja wayland wayland-protocols libxkbcommon cairo pango scdoc pkgconf gcc
     fi
-    curl -fsSL "https://git.sr.ht/~proycon/wvkbd/archive/${WVKBD_VERSION}.tar.gz" \
-        -o "${WVKBD_BUILD}/wvkbd.tar.gz"
+    curl -fsSL "${WVKBD_TARBALL_URL}" -o "${WVKBD_BUILD}/wvkbd.tar.gz"
     tar -xzf "${WVKBD_BUILD}/wvkbd.tar.gz" -C "${WVKBD_BUILD}"
     cd "${WVKBD_BUILD}/wvkbd-${WVKBD_VERSION}"
     meson setup build --prefix=/usr -Dbuildtype=release
