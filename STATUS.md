@@ -87,12 +87,20 @@ All hardware items remain **NEEDS_PHYSICAL_TEST** until Loki Zero is booted from
 
 ## Flash instructions
 
+**Status:** IMPLEMENTED · TESTED WITH LOOPBACK (dry-run in CI) · NEEDS_PHYSICAL_TEST
+
 ```bash
-# Download loki-streamos-20260908.img from GitHub Actions artifacts
-sha256sum -c loki-streamos-20260908.sha256
-sudo dd if=loki-streamos-20260908.img of=/dev/sdX bs=4M status=progress conv=fsync
-sync
+# Download loki-streamos-20260908.img + .sha256 from GitHub Actions artifacts
+sudo ./tools/flash/flash-streamos.sh loki-streamos-20260908.img
+# Type exactly: FLASH /dev/sdX
 ```
+
+Windows (Administrator PowerShell):
+```powershell
+.\tools\flash\flash-streamos.ps1 -Image .\loki-streamos-20260908.img
+```
+
+See `tools/flash/README.md` for `--dry-run`, `--verify`, and safety details.
 
 Boot Loki Zero: hold **Volume Down** at power-on → select USB.
 

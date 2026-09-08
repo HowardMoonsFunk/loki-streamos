@@ -359,6 +359,15 @@ log_info "Generating checksums..."
 )
 log_info "Checksum: $(cat "$CHECKSUM_FILE")"
 
+BMAP_FILE="${IMG_FILE}.bmap"
+if command -v bmaptool &>/dev/null; then
+    log_info "Generating bmap metadata..."
+    bmaptool create "$IMG_FILE" > "$BMAP_FILE"
+    log_info "Bmap: $BMAP_FILE"
+else
+    log_warn "bmaptool not installed — skipping .bmap (optional for faster flashing)"
+fi
+
 log_info ""
 log_info "╔════════════════════════════════════════════════════════════╗"
 log_info "║  Loki StreamOS Image Ready for Testing                     ║"
@@ -366,9 +375,8 @@ log_info "╠══════════════════════�
 log_info "║  Image: $IMG_FILE"
 log_info "║  Size:  ${IMG_SIZE_GB} GB (bootable on USB/SD card)"
 log_info "║                                                            ║"
-log_info "║  Write to USB:                                             ║"
-log_info "║  sudo dd if=$IMG_FILE of=/dev/sdX bs=4M status=progress    ║"
-log_info "║  sync && sudo eject /dev/sdX                               ║"
+log_info "║  Flash to USB/SD:                                          ║"
+log_info "║  sudo ./tools/flash/flash-streamos.sh $IMG_FILE            ║"
 log_info "║                                                            ║"
 log_info "║  Boot Loki Zero (hold Volume Down for menu)                ║"
 log_info "╚════════════════════════════════════════════════════════════╝"

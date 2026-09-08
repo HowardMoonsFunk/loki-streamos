@@ -48,7 +48,8 @@ jobs:
             gcc \
             make \
             git \
-            coreutils
+            coreutils \
+            bmap-tools
           echo "=== Disk before build ==="
           df -h /
 
@@ -58,7 +59,8 @@ jobs:
         run: |
           chmod +x scripts/build-image.sh scripts/diagnostics.sh \
             scripts/streamos-input-test.sh scripts/streamos-storage-status.sh \
-            scripts/validate-image.sh launcher/menu.sh
+            scripts/validate-image.sh launcher/menu.sh \
+            tools/flash/flash-streamos.sh tools/flash/tests/run-dry-run-tests.sh
           bash ./scripts/build-image.sh
 
       - name: Verify checksum file
@@ -73,6 +75,10 @@ jobs:
       - name: Structurally validate image
         run: |
           bash ./scripts/validate-image.sh build-artifacts/loki-streamos-*.img
+
+      - name: Flash tool dry-run tests
+        run: |
+          bash ./tools/flash/tests/run-dry-run-tests.sh
 
       - name: Report artifact metadata
         run: |
@@ -96,6 +102,14 @@ jobs:
           name: loki-streamos-checksums
           path: build-artifacts/*.sha256
           retention-days: 30
+
+      - name: Upload bmap (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: loki-streamos-bmap
+          path: build-artifacts/*.bmap
+          retention-days: 30
+          if-no-files-found: ignore
 
       - name: Create release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
