@@ -1,0 +1,115 @@
+name: Build Loki StreamOS Image
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'base/**'
+      - 'hardware/**'
+      - 'scripts/**'
+      - 'docs/**'
+      - '.github/workflows/build-image.yml'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Bootable Image
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Update system and install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm \
+            arch-install-scripts \
+            mtools \
+            dosfstools \
+            squashfs-tools \
+            grub \
+            efibootmgr \
+            git \
+            coreutils
+      
+      - name: Show build environment
+        run: |
+          echo "=== Arch Linux Version ==="
+          arch
+          echo "=== Available disk space ==="
+          df -h /
+          echo "=== Kernel Version ==="
+          uname -r
+      
+      - name: Build Loki StreamOS image
+        run: |
+          sudo bash ./scripts/build-image.sh
+      
+      - name: Verify image
+        run: |
+          ls -lh build-artifacts/
+          sha256sum build-artifacts/*.img
+          file build-artifacts/loki-streamos-*.img
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: loki-streamos-image
+          path: build-artifacts/loki-streamos-*.img
+          retention-days: 30
+      
+      - name: Upload checksum
+        uses: actions/upload-artifact@v3
+        with:
+          name: loki-streamos-checksums
+          path: build-artifacts/*.sha256
+          retention-days: 30
+      
+      - name: Create release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build-artifacts/loki-streamos-*.img
+            build-artifacts/*.sha256
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  verify:
+    name: Verify Build Artifacts
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+      
+      - name: Verify image integrity
+        run: |
+          cd loki-streamos-checksums
+          sha256sum -c *.sha256
+      
+      - name: Verify image format
+        run: |
+          cd loki-streamos-image
+          file *.img
+          du -h *.img
+      
+      - name: Summary
+        run: |
+          echo "✅ Image build and verification successful!"
+          echo ""
+          echo "Next steps:"
+          echo "1. Download image from artifacts"
+          echo "2. Write to USB: sudo dd if=loki-streamos-*.img of=/dev/sdX bs=4M"
+          echo "3. Boot on Loki Zero (hold Volume Down for boot menu)"
+          echo "4. Run diagnostics.sh to verify hardware support"

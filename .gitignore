@@ -1,0 +1,42 @@
+# Build artifacts
+build-artifacts/
+*.img
+*.img.gz
+*.iso
+*.tar.gz
+rootfs/
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# IDE/Editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.AppleDouble
+.LSOverride
+
+# Disk images mounted
+/mnt/
+/media/
+
+# Logs
+*.log
+journalctl-*.txt
+dmesg-*.txt
+
+# Local test files
+test-*.sh
+local-*.conf
+
+# Secrets
+.env
+.env.local
+secrets/

@@ -1,0 +1,23 @@
+GNU GENERAL PUBLIC LICENSE
+Version 2, June 1991
+
+Copyright (C) 1989, 1991 Free Software Foundation, Inc.
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
+
+Everyone is permitted to copy and distribute verbatim copies
+of this license document, but changing it is not allowed.
+
+...
+
+[See full GPL-2.0 text at: https://www.gnu.org/licenses/gpl-2.0.txt]
+
+---
+
+Loki StreamOS is licensed under GPL-2.0 for compatibility with:
+- Linux kernel (GPL-2.0)
+- Mesa/AMDGPU drivers (MIT/GPL-2.0)
+- systemd (LGPL-2.1+)
+- Arch Linux packages (various, but predominantly GPL-compatible)
+
+This ensures compliance with upstream open-source projects and 
+allows derivative works to be distributed under the same terms.
