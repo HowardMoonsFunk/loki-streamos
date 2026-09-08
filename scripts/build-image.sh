@@ -43,7 +43,9 @@ cleanup() {
         rmdir "$MNT_SYSTEM" 2>/dev/null || true
     fi
     if [[ -n "${LOOP_DEV:-}" ]]; then
-        losetup -d "$LOOP_DEV" 2>/dev/null || true
+        for dev in $LOOP_DEV; do
+            losetup -d "$dev" 2>/dev/null || true
+        done
     fi
 }
 trap cleanup EXIT
@@ -238,24 +240,42 @@ parted -s "$IMG_FILE" mkpart primary fat32 1MiB "${BOOT_SIZE_MB}MiB"
 parted -s "$IMG_FILE" mkpart primary ext4 "${BOOT_SIZE_MB}MiB" 100%
 parted -s "$IMG_FILE" set 1 esp on
 
+BOOT_OFFSET=$((1024 * 1024))
+SYSTEM_OFFSET=$((BOOT_SIZE_MB * 1024 * 1024))
+BOOT_SIZE_BYTES=$((SYSTEM_OFFSET - BOOT_OFFSET))
+
+MNT_BOOT="$(mktemp -d)"
+MNT_SYSTEM="$(mktemp -d)"
+
+# Prefer partition devices; fall back to offset loop mounts (CI containers often lack /dev/loopNpM)
 LOOP_DEV="$(losetup -fP --show "$IMG_FILE")"
-partprobe "$LOOP_DEV" 2>/dev/null || true
-sleep 1
+modprobe loop 2>/dev/null || true
+partx -a "$LOOP_DEV" 2>/dev/null || partprobe "$LOOP_DEV" 2>/dev/null || true
+sleep 2
 
 BOOT_PART="${LOOP_DEV}p1"
 SYSTEM_PART="${LOOP_DEV}p2"
 [[ -b "$BOOT_PART" ]] || BOOT_PART="${LOOP_DEV}1"
 [[ -b "$SYSTEM_PART" ]] || SYSTEM_PART="${LOOP_DEV}2"
-[[ -b "$BOOT_PART" && -b "$SYSTEM_PART" ]] || log_error "Loopback partitions not found on $LOOP_DEV"
 
-mkfs.fat -F 32 -n LOKI_BOOT "$BOOT_PART"
-mkfs.ext4 -F -L LOKI_SYSTEM "$SYSTEM_PART"
-
-MNT_BOOT="$(mktemp -d)"
-MNT_SYSTEM="$(mktemp -d)"
-
-mount "$BOOT_PART" "$MNT_BOOT"
-mount "$SYSTEM_PART" "$MNT_SYSTEM"
+if [[ -b "$BOOT_PART" && -b "$SYSTEM_PART" ]]; then
+    log_info "Using loop partition devices: $BOOT_PART $SYSTEM_PART"
+    mkfs.fat -F 32 -n LOKI_BOOT "$BOOT_PART"
+    mkfs.ext4 -F -L LOKI_SYSTEM "$SYSTEM_PART"
+    mount "$BOOT_PART" "$MNT_BOOT"
+    mount "$SYSTEM_PART" "$MNT_SYSTEM"
+else
+    log_warn "Partition nodes missing on $LOOP_DEV — using offset loop mounts"
+    losetup -d "$LOOP_DEV" 2>/dev/null || true
+    LOOP_DEV=""
+    BOOT_LOOP="$(losetup -f --show -o "$BOOT_OFFSET" --sizelimit "$BOOT_SIZE_BYTES" "$IMG_FILE")"
+    SYSTEM_LOOP="$(losetup -f --show -o "$SYSTEM_OFFSET" "$IMG_FILE")"
+    LOOP_DEV="$BOOT_LOOP $SYSTEM_LOOP"
+    mkfs.fat -F 32 -n LOKI_BOOT "$BOOT_LOOP"
+    mkfs.ext4 -F -L LOKI_SYSTEM "$SYSTEM_LOOP"
+    mount "$BOOT_LOOP" "$MNT_BOOT"
+    mount "$SYSTEM_LOOP" "$MNT_SYSTEM"
+fi
 
 # Root filesystem on ext4 partition
 cp -a "$ROOTFS_DIR"/. "$MNT_SYSTEM/"
@@ -270,7 +290,9 @@ bootctl --esp-path="$MNT_BOOT" install
 
 sync
 umount "$MNT_BOOT" "$MNT_SYSTEM"
-losetup -d "$LOOP_DEV"
+for dev in $LOOP_DEV; do
+    losetup -d "$dev" 2>/dev/null || true
+done
 LOOP_DEV=""
 rmdir "$MNT_BOOT" "$MNT_SYSTEM"
 MNT_BOOT=""
