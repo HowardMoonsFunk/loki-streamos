@@ -94,8 +94,7 @@ pacstrap -C "${PROJECT_ROOT}/base/pacman.conf" -K "$ROOTFS_DIR" \
   curl wget git openssh sudo \
   squashfs-tools efibootmgr \
   mkinitcpio \
-  libinput evtest i2c-tools \
-  wmenu wvkbd \
+  libinput evtest i2c-tools wmenu \
   --needed
 
 log_info "Rootfs installed to: $ROOTFS_DIR"
@@ -186,6 +185,21 @@ log_info "Step 4/6: Installing launcher framework..."
 mkdir -p "$ROOTFS_DIR/opt/moonlight" "$ROOTFS_DIR/opt/launcher"
 
 install -Dm755 "${PROJECT_ROOT}/launcher/menu.sh" "$ROOTFS_DIR/opt/launcher/menu.sh"
+
+# wvkbd is AUR-only on Arch — build minimal wlroots OSK from upstream source
+log_info "Building wvkbd from upstream (Wayland/Gamescope OSK)..."
+arch-chroot "$ROOTFS_DIR" bash -e <<'WVKBD'
+pacman -S --noconfirm --needed git meson ninja wayland-protocols libxkbcommon cairo pango scdoc pkgconf
+ver="0.14.1"
+curl -fsSL "https://git.sr.ht/~proycon/wvkbd/archive/${ver}.tar.gz" -o /tmp/wvkbd.tar.gz
+tar -xzf /tmp/wvkbd.tar.gz -C /tmp
+cd "/tmp/wvkbd-${ver}"
+meson setup build --prefix=/usr -Dbuildtype=release
+ninja -C build
+ninja -C build install
+rm -rf /tmp/wvkbd.tar.gz "/tmp/wvkbd-${ver}"
+pacman -Rns --noconfirm git meson ninja scdoc 2>/dev/null || true
+WVKBD
 
 cat > "$ROOTFS_DIR/opt/launcher/run.sh" <<'EOF'
 #!/bin/bash
