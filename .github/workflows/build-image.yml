@@ -11,6 +11,7 @@ on:
       - 'hardware/**'
       - 'launcher/**'
       - 'scripts/**'
+      - 'tools/flash/**'
       - '.github/workflows/build-image.yml'
   pull_request:
   workflow_dispatch:
@@ -48,8 +49,7 @@ jobs:
             gcc \
             make \
             git \
-            coreutils \
-            bmap-tools
+            coreutils
           echo "=== Disk before build ==="
           df -h /
 

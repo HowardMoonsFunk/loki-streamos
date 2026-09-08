@@ -365,7 +365,7 @@ if command -v bmaptool &>/dev/null; then
     bmaptool create "$IMG_FILE" > "$BMAP_FILE"
     log_info "Bmap: $BMAP_FILE"
 else
-    log_warn "bmaptool not installed — skipping .bmap (optional for faster flashing)"
+    log_warn "bmaptool unavailable; skipping optional .bmap generation"
 fi
 
 log_info ""
