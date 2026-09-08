@@ -55,7 +55,8 @@
 ### Touchscreen
 - **Type**: Capacitive panel on 6" 1280×720 display
 - **Likely Interface**: USB HID and/or I2C-HID (NEEDS_PHYSICAL_TEST)
-- **Status**: NEEDS_PHYSICAL_TEST — driver path and coordinate orientation unknown
+- **Status**: **NEEDS_PHYSICAL_TEST (first-class)** — driver path and coordinate orientation unknown
+- **Image support**: Mainline `hid_multitouch`, `i2c_hid`, `i2c_hid_acpi` modules + `libinput` (no custom driver, no calibration in v1)
 - **Driver Stack**: `hid-multitouch`, `goodix`, `ft5x06`, or similar mainline driver (TBD)
 - **Testing**:
   - Identify: `libinput list-devices`, `/proc/bus/input/devices`, `udevadm info`, `lsusb`, I2C scan

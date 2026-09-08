@@ -132,6 +132,15 @@ sudo libinput debug-events
 
 **Objective:** Verify capacitive touch is detected, oriented correctly for 1280×720, and usable as a first-class fallback (Wi-Fi/BT pairing, text entry, diagnostics) alongside the controller.
 
+**Gesture / integration checklist (Phase 1 physical test):**
+- [ ] Touchscreen detected (event node + vendor/product in diagnostics)
+- [ ] Tap/drag works (`libinput debug-events`)
+- [ ] Coordinates match 1280×720 orientation
+- [ ] Multitouch reported/tested if `ABS_MT_SLOT` present
+- [ ] Touch works under Gamescope (launcher `wmenu` responds)
+- [ ] Touch works after suspend/resume
+- [ ] On-screen keyboard (`wvkbd`) usable for Wi-Fi password entry
+
 **Identify the device:**
 ```bash
 # Full capture (included in diagnostics tarball)

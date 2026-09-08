@@ -93,6 +93,7 @@ pacstrap -C "${PROJECT_ROOT}/base/pacman.conf" -K "$ROOTFS_DIR" \
   squashfs-tools efibootmgr \
   mkinitcpio \
   libinput evtest i2c-tools \
+  wmenu wvkbd \
   --needed
 
 log_info "Rootfs installed to: $ROOTFS_DIR"
@@ -165,6 +166,15 @@ options amdgpu gpu_recovery=1
 options amdgpu ppfeaturemask=0xffffffff
 EOF
 
+# Standard mainline touchscreen modules (HID + I2C-HID) — no custom drivers
+mkdir -p "$ROOTFS_DIR/etc/modules-load.d"
+cat > "$ROOTFS_DIR/etc/modules-load.d/touchscreen.conf" <<'EOF'
+# Load common touchscreen stacks early; exact chip binds at probe time
+hid_multitouch
+i2c_hid
+i2c_hid_acpi
+EOF
+
 # ============================================================================
 # Step 4: Launcher framework
 # ============================================================================
@@ -173,10 +183,12 @@ log_info "Step 4/6: Installing launcher framework..."
 
 mkdir -p "$ROOTFS_DIR/opt/moonlight" "$ROOTFS_DIR/opt/launcher"
 
+install -Dm755 "${PROJECT_ROOT}/launcher/menu.sh" "$ROOTFS_DIR/opt/launcher/menu.sh"
+
 cat > "$ROOTFS_DIR/opt/launcher/run.sh" <<'EOF'
 #!/bin/bash
-# Loki StreamOS Launcher (placeholder — controller UI in Phase 6)
-exec gamescope -W 1280 -H 720 --immediate-mode -- true
+# Phase 1 launcher — Gamescope + wmenu (touch/pointer + keyboard/controller arrows)
+exec gamescope -W 1280 -H 720 --immediate-mode -- /opt/launcher/menu.sh
 EOF
 chmod +x "$ROOTFS_DIR/opt/launcher/run.sh"
 

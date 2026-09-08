@@ -9,6 +9,7 @@ on:
     paths:
       - 'base/**'
       - 'hardware/**'
+      - 'launcher/**'
       - 'scripts/**'
       - 'docs/**'
       - '.github/workflows/build-image.yml'
@@ -53,7 +54,7 @@ jobs:
 
       - name: Build Loki StreamOS image
         run: |
-          chmod +x scripts/build-image.sh scripts/diagnostics.sh scripts/streamos-input-test.sh
+          chmod +x scripts/build-image.sh scripts/diagnostics.sh scripts/streamos-input-test.sh launcher/menu.sh
           bash ./scripts/build-image.sh
 
       - name: Verify image

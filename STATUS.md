@@ -13,7 +13,7 @@
 - [x] Research upstream Linux support (Bazzite, ChimeraOS, Batocera)
 - [x] Verify all hardware is supported by existing drivers
 - [x] Create `docs/HARDWARE.md` with detailed component status
-- [x] Identify NEEDS_PHYSICAL_TEST items
+- [x] Identify NEEDS_PHYSICAL_TEST items (incl. touchscreen — Phase 1 amendment)
 
 ### Phase 2: Architecture
 - [x] ADR-001: Arch Linux selected as base OS
@@ -43,6 +43,16 @@
 - [x] `.gitignore` configured for build artifacts
 - [x] `LICENSE` (GPL-2.0) for kernel/driver compatibility
 - [x] `README.md` with quick-start and project overview
+
+### Phase 1 Amendment: Touchscreen Readiness (2026-09-08)
+- [x] Touchscreen listed as first-class NEEDS_PHYSICAL_TEST device
+- [x] Image includes mainline HID/I2C-HID modules + libinput (no custom drivers)
+- [x] `streamos-input-test` captures event node, bus/vendor/product, capabilities, multitouch, axis ranges
+- [x] Lightweight Phase 1 launcher (`wmenu` under Gamescope) — touch/pointer + keyboard/controller arrows
+- [x] `wvkbd` on-screen keyboard for Wi-Fi password entry during physical testing
+- [ ] Physical validation on Loki Zero (blocked on bootable image + hardware)
+
+**Not in scope:** Plasma Mobile, Phosh, GNOME, KDE, or touch calibration until hardware proves it.
 
 ---
 
@@ -127,6 +137,7 @@
 - Display detection and resolution
 - GPU driver loading (amdgpu)
 - Controller button mapping
+- Touchscreen detection, tap/drag, 1280×720 orientation, Gamescope + post-suspend
 - Wi-Fi chipset and drivers
 - Bluetooth functionality
 - Audio codec and routing
@@ -264,7 +275,8 @@ loki-streamos/
 │   └── pacman.conf              Minimal Arch package config
 ├── hardware/
 │   └── ayn-loki-zero/           Loki-specific configs (future)
-├── launcher/                    Placeholder for UI (future)
+├── launcher/
+│   └── menu.sh                  Phase 1 wmenu launcher (touch + controller)
 ├── scripts/
 │   ├── build-image.sh           Main image builder
 │   ├── diagnostics.sh           Hardware verification script

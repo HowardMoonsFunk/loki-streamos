@@ -150,6 +150,78 @@ write_or_echo "input-by-id.txt" ls -la /dev/input/by-id/ 2>/dev/null || true
     ' /proc/bus/input/devices 2>/dev/null || true
 } > "$OUTPUT_DIR/touchscreen-summary.txt"
 
+# Per-device report: event node, bus, vendor/product, capabilities, multitouch, axis ranges
+{
+    echo "# Touchscreen device report (NEEDS_PHYSICAL_TEST)"
+    echo "# Display reference: ${DISPLAY_SIZE}"
+    echo ""
+
+    touch_nodes=()
+    if command -v libinput &>/dev/null; then
+        while IFS= read -r node; do
+            [[ -n "$node" && -e "$node" ]] && touch_nodes+=("$node")
+        done < <(libinput list-devices 2>/dev/null | awk '
+            /^Device:/ { dev="" }
+            /Kernel:/ { dev=$2 }
+            /Capabilities:/ && /touch/ { if (dev) print dev }
+        ')
+    fi
+
+    if [[ ${#touch_nodes[@]} -eq 0 ]]; then
+        while IFS= read -r handler; do
+            handler="${handler#Handlers=}"
+            handler="${handler%% *}"
+            [[ -e "/dev/input/${handler}" ]] && touch_nodes+=("/dev/input/${handler}")
+        done < <(awk '/^N:.*[Tt]ouch|^N:.*[Mm]ultitouch/ { getline; if ($1=="H:") print $2 }' /proc/bus/input/devices 2>/dev/null)
+    fi
+
+    if [[ ${#touch_nodes[@]} -eq 0 ]]; then
+        echo "STATUS: no touchscreen event node identified (NEEDS_PHYSICAL_TEST on device)"
+    else
+    for dev in "${touch_nodes[@]}"; do
+        echo "=== event_node: $dev ==="
+        if command -v udevadm &>/dev/null; then
+            udevadm info --query=property --name="$dev" 2>/dev/null \
+                | grep -E '^ID_(BUS|VENDOR_ID|MODEL_ID|INPUT_|NAME|PATH|DEVNAME)=' || true
+        fi
+        echo ""
+        echo "-- libinput --"
+        libinput list-devices 2>/dev/null | awk -v d="$dev" '
+            /^Device:/ { show=0; block="" }
+            /Kernel:/ && $2==d { show=1 }
+            { block=block $0 "\n" }
+            /^$/ { if (show) printf "%s", block; block="" }
+            END { if (show) printf "%s", block }
+        ' || true
+        echo ""
+        echo "-- capabilities / axes (evtest) --"
+        if command -v evtest &>/dev/null; then
+            for code in ABS_X ABS_Y ABS_MT_POSITION_X ABS_MT_POSITION_Y ABS_MT_SLOT ABS_MT_TRACKING_ID; do
+                if evtest --query "$dev" EV_ABS "$code" &>/dev/null; then
+                    echo -n "$code: "
+                    evtest --query "$dev" EV_ABS "$code" 2>/dev/null || echo "query failed"
+                fi
+            done
+            if evtest --query "$dev" EV_KEY BTN_TOUCH &>/dev/null; then
+                echo -n "BTN_TOUCH: "
+                evtest --query "$dev" EV_KEY BTN_TOUCH 2>/dev/null || true
+            fi
+            if evtest --query "$dev" EV_ABS ABS_MT_SLOT &>/dev/null; then
+                echo "multitouch: ABS_MT_SLOT present (multi-finger capable)"
+            else
+                echo "multitouch: ABS_MT_SLOT not reported (single-touch or driver limitation)"
+            fi
+        else
+            echo "evtest not installed"
+        fi
+        echo ""
+    done
+
+    echo "-- kernel (dmesg touch/HID/I2C) --"
+    dmesg 2>/dev/null | grep -iE 'touch|hid-multitouch|i2c-hid|goodix|ft5|edt|ili|input:' | tail -40 || true
+    fi
+} > "$OUTPUT_DIR/touchscreen-device-report.txt" 2>&1
+
 # Wayland / Gamescope environment snapshot (non-fatal)
 {
     echo "XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-unset}"
@@ -171,44 +243,27 @@ fi
 # Interactive physical verification (requires operator on device)
 # ============================================================================
 
-section "Physical verification checklist"
+section "Physical verification checklist (Phase 1 — NEEDS_PHYSICAL_TEST)"
 cat <<'EOF'
 
-Run these checks on the Loki with the display active. Mark pass/fail manually
-or re-run after suspend/resume and in the launcher.
+Record pass/fail for each item. Do not add calibration unless a consistent
+transform is proven on hardware.
 
-1. Touch events reach the compositor
-   - With Gamescope/launcher running, tap the display.
-   - In another VT or SSH session:
-       libinput debug-events --device=<touch-event-node>
-     Confirm BTN_TOUCH / ABS_MT_* events when tapping.
+[ ] touchscreen detected (event node in touchscreen-device-report.txt)
+[ ] tap works (BTN_TOUCH / ABS_MT events in libinput debug-events)
+[ ] drag works (continuous ABS_MT_POSITION or ABS_X/Y while moving finger)
+[ ] coordinates correspond to 1280×720 orientation (top-left low, bottom-right high)
+[ ] multitouch reported/tested if ABS_MT_SLOT present in device report
+[ ] touch works under Gamescope (launcher wmenu responds to tap)
+[ ] touch works after suspend/resume (systemctl suspend, wake, re-test)
 
-2. Coordinates match 1280×720 orientation
-   - Tap top-left: ABS_MT_POSITION_X/Y near (0, 0).
-   - Tap bottom-right: values near max (check ABS_MT ABS ranges in evtest).
-   - If X/Y appear swapped or inverted, record it — do NOT apply calibration
-     in software until physical testing confirms a consistent transform is needed.
+Gamescope / launcher:
+  - Boot to launcher; tap menu items (touch/pointer via wmenu)
+  - Optional: arrow keys + Enter if controller maps to keyboard
+  - "On-screen keyboard" menu item starts wvkbd for Wi-Fi password entry
 
-3. Gestures (if driver exposes multi-touch)
-   - [ ] Single tap registers
-   - [ ] Drag/swipe registers continuous motion
-   - [ ] Long-press (if supported by driver)
-   - [ ] Two-finger gesture (if ABS_MT_SLOT / multi-finger events appear)
-
-4. Suspend/resume
-   - systemctl suspend → wake → repeat step 1–3.
-
-5. Launcher
-   - [ ] Touch works for Wi-Fi list scroll/tap (when UI exists)
-   - [ ] Touch works for on-screen keyboard / text entry fallback
-   - [ ] Touch works for emergency diagnostics launch
-
-6. Moonlight (test separately from launcher shell)
-   Moonlight touch behavior varies by client build and host settings:
-   - Mouse emulation: touch → cursor move + click
-   - Native touch injection: host receives touch events (Sunshine-dependent)
-   - No touch: controller/mouse only
-   Record observed behavior; explicit Moonlight touch config may be needed later.
+Moonlight (separate test):
+  - Record whether touch maps to mouse, native touch injection, or neither
 
 EOF
 
