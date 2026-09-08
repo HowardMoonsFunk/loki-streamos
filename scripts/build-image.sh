@@ -22,8 +22,8 @@ IMG_FILE="${BUILD_DIR}/loki-streamos-${BUILD_DATE}.img"
 CHECKSUM_FILE="${BUILD_DIR}/loki-streamos-${BUILD_DATE}.sha256"
 IMG_SIZE_GB=8
 BOOT_SIZE_MB=512
-WVKBD_VERSION="0.14.1"  # pinned tag; tarball from GitHub mirror (sr.ht archive 404 for this tag)
-WVKBD_TARBALL_URL="https://github.com/jjsullivan5196/wvkbd/archive/refs/tags/${WVKBD_VERSION}.tar.gz"
+WVKBD_TAG="v0.14.1"  # pinned GitHub release tag (commit aaff22a1054a7ca7e4237c723fc5f99c1d36f608)
+WVKBD_TARBALL_URL="https://codeload.github.com/jjsullivan5196/wvkbd/tar.gz/refs/tags/${WVKBD_TAG}"
 STREAMOS_VERSION="0.1.0-phase4"
 BUILD_COMMIT="${GITHUB_SHA:-$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)}"
 
@@ -144,7 +144,7 @@ ID_LIKE=arch
 PRETTY_NAME="Loki StreamOS ${STREAMOS_VERSION}"
 BUILD_DATE=${BUILD_DATE}
 BUILD_COMMIT=${BUILD_COMMIT}
-WVKBD_VERSION=${WVKBD_VERSION}
+WVKBD_VERSION=${WVKBD_TAG}
 IMAGE_SIZE_GB=${IMG_SIZE_GB}
 EOF
 
@@ -214,7 +214,7 @@ mkdir -p "$ROOTFS_DIR/opt/moonlight" "$ROOTFS_DIR/opt/launcher"
 install -Dm755 "${PROJECT_ROOT}/launcher/menu.sh" "$ROOTFS_DIR/opt/launcher/menu.sh"
 
 # wvkbd: build on HOST (not in chroot) to avoid exhausting CI disk inside rootfs
-log_info "Building wvkbd ${WVKBD_VERSION} on build host (DESTDIR -> rootfs)..."
+log_info "Building wvkbd ${WVKBD_TAG} on build host (DESTDIR -> rootfs)..."
 WVKBD_BUILD="$(mktemp -d)"
 build_wvkbd_host() {
     local need_install=0
@@ -227,7 +227,7 @@ build_wvkbd_host() {
     fi
     curl -fsSL -L "${WVKBD_TARBALL_URL}" -o "${WVKBD_BUILD}/wvkbd.tar.gz"
     tar -xzf "${WVKBD_BUILD}/wvkbd.tar.gz" -C "${WVKBD_BUILD}"
-    cd "${WVKBD_BUILD}/wvkbd-${WVKBD_VERSION}"
+    cd "${WVKBD_BUILD}"/wvkbd-*
     meson setup build --prefix=/usr -Dbuildtype=release
     ninja -C build
     DESTDIR="$ROOTFS_DIR" ninja -C build install
