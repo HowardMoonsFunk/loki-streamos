@@ -103,8 +103,10 @@ jobs:
           allocated="$(du -b "$img" | cut -f1)"
           echo "After materialize: logical=$logical bytes, allocated=$allocated bytes"
           test "$logical" -eq "$allocated"
-          sha256sum "$(basename "$img")" > "$(basename "$img").sha256"
-          sha256sum -c "$(basename "$img").sha256"
+          sum_file="${img%.img}.sha256"
+          rm -f "${img}.sha256"
+          sha256sum "$(basename "$img")" > "$(basename "$sum_file")"
+          sha256sum -c "$(basename "$sum_file")"
 
       - name: Report artifact metadata
         run: |
@@ -160,12 +162,14 @@ jobs:
       - name: Verify image integrity
         run: |
           cd artifacts
-          ls -lh
-          test -f loki-streamos-*.img
-          test -f loki-streamos-*.sha256
-          sha256sum -c loki-streamos-*.sha256
-          file loki-streamos-*.img
-          logical=$(stat -c%s loki-streamos-*.img)
-          allocated=$(du -b loki-streamos-*.img | cut -f1)
+          img="$(ls loki-streamos-*.img)"
+          sum="${img%.img}.sha256"
+          ls -lh "$img" "$sum"
+          test -f "$img"
+          test -f "$sum"
+          sha256sum -c "$sum"
+          file "$img"
+          logical="$(stat -c%s "$img")"
+          allocated="$(du -b "$img" | cut -f1)"
           echo "logical=$logical allocated=$allocated"
           test "$logical" -eq "$allocated"
