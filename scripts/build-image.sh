@@ -22,6 +22,9 @@ IMG_FILE="${BUILD_DIR}/loki-streamos-${BUILD_DATE}.img"
 CHECKSUM_FILE="${BUILD_DIR}/loki-streamos-${BUILD_DATE}.sha256"
 IMG_SIZE_GB=8
 BOOT_SIZE_MB=512
+WVKBD_VERSION="0.14.1"  # pinned upstream release — not a moving HEAD
+STREAMOS_VERSION="0.1.0-phase4"
+BUILD_COMMIT="${GITHUB_SHA:-$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -90,12 +93,16 @@ pacstrap -C "${PROJECT_ROOT}/base/pacman.conf" -K "$ROOTFS_DIR" \
   pipewire pipewire-alsa pipewire-pulse wireplumber \
   gamescope \
   systemd \
-  glibc gcc binutils less vim nano \
-  curl wget git openssh sudo \
+  glibc less vim nano \
+  curl wget openssh sudo \
   squashfs-tools efibootmgr \
   mkinitcpio \
   libinput evtest i2c-tools wmenu \
   --needed
+
+# Shrink rootfs: drop pacman package cache (not needed at runtime)
+arch-chroot "$ROOTFS_DIR" pacman -Scc --noconfirm 2>/dev/null || true
+rm -rf "$ROOTFS_DIR/var/cache/pacman/pkg/"*
 
 log_info "Rootfs installed to: $ROOTFS_DIR"
 
@@ -128,6 +135,18 @@ ln -sf /usr/share/zoneinfo/UTC "$ROOTFS_DIR/etc/localtime"
 arch-chroot "$ROOTFS_DIR" locale-gen
 arch-chroot "$ROOTFS_DIR" mkinitcpio -P
 
+cat > "$ROOTFS_DIR/etc/streamos-release" <<EOF
+NAME="Loki StreamOS"
+VERSION="${STREAMOS_VERSION}"
+ID=streamos
+ID_LIKE=arch
+PRETTY_NAME="Loki StreamOS ${STREAMOS_VERSION}"
+BUILD_DATE=${BUILD_DATE}
+BUILD_COMMIT=${BUILD_COMMIT}
+WVKBD_VERSION=${WVKBD_VERSION}
+IMAGE_SIZE_GB=${IMG_SIZE_GB}
+EOF
+
 # ============================================================================
 # Step 3: Loki-specific hardware configuration
 # ============================================================================
@@ -148,6 +167,13 @@ SUBSYSTEM=="input", ATTRS{id/vendor}=="0x054c", TAG+="uaccess"
 SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", TAG+="uaccess"
 SUBSYSTEM=="input", ATTRS{name}=="*touch*", TAG+="uaccess"
 SUBSYSTEM=="input", ATTRS{name}=="*Touch*", TAG+="uaccess"
+EOF
+
+# Never auto-touch internal NVMe/eMMC (Windows install on Loki Zero internal storage)
+cat > "$ROOTFS_DIR/etc/udev/rules.d/60-streamos-storage.rules" <<'EOF'
+# Live USB image must not modify internal storage — block automount helpers
+SUBSYSTEM=="block", KERNEL=="nvme*", ENV{ID_BUS}=="pci", ENV{STREAMOS_IGNORE}="1"
+SUBSYSTEM=="block", KERNEL=="mmcblk*", ENV{STREAMOS_IGNORE}="1"
 EOF
 
 mkdir -p "$ROOTFS_DIR/etc/systemd"
@@ -186,20 +212,30 @@ mkdir -p "$ROOTFS_DIR/opt/moonlight" "$ROOTFS_DIR/opt/launcher"
 
 install -Dm755 "${PROJECT_ROOT}/launcher/menu.sh" "$ROOTFS_DIR/opt/launcher/menu.sh"
 
-# wvkbd is AUR-only on Arch — build minimal wlroots OSK from upstream source
-log_info "Building wvkbd from upstream (Wayland/Gamescope OSK)..."
-arch-chroot "$ROOTFS_DIR" bash -e <<'WVKBD'
-pacman -S --noconfirm --needed git meson ninja wayland-protocols libxkbcommon cairo pango scdoc pkgconf
-ver="0.14.1"
-curl -fsSL "https://git.sr.ht/~proycon/wvkbd/archive/${ver}.tar.gz" -o /tmp/wvkbd.tar.gz
-tar -xzf /tmp/wvkbd.tar.gz -C /tmp
-cd "/tmp/wvkbd-${ver}"
-meson setup build --prefix=/usr -Dbuildtype=release
-ninja -C build
-ninja -C build install
-rm -rf /tmp/wvkbd.tar.gz "/tmp/wvkbd-${ver}"
-pacman -Rns --noconfirm git meson ninja scdoc 2>/dev/null || true
-WVKBD
+# wvkbd: build on HOST (not in chroot) to avoid exhausting CI disk inside rootfs
+log_info "Building wvkbd ${WVKBD_VERSION} on build host (DESTDIR -> rootfs)..."
+WVKBD_BUILD="$(mktemp -d)"
+build_wvkbd_host() {
+    local need_install=0
+    for cmd in meson ninja gcc; do
+        command -v "$cmd" &>/dev/null || need_install=1
+    done
+    if [[ "$need_install" -eq 1 ]]; then
+        pacman -S --noconfirm --needed \
+            meson ninja wayland wayland-protocols libxkbcommon cairo pango scdoc pkgconf gcc
+    fi
+    curl -fsSL "https://git.sr.ht/~proycon/wvkbd/archive/${WVKBD_VERSION}.tar.gz" \
+        -o "${WVKBD_BUILD}/wvkbd.tar.gz"
+    tar -xzf "${WVKBD_BUILD}/wvkbd.tar.gz" -C "${WVKBD_BUILD}"
+    cd "${WVKBD_BUILD}/wvkbd-${WVKBD_VERSION}"
+    meson setup build --prefix=/usr -Dbuildtype=release
+    ninja -C build
+    DESTDIR="$ROOTFS_DIR" ninja -C build install
+    cd "$PROJECT_ROOT"
+}
+build_wvkbd_host
+rm -rf "$WVKBD_BUILD"
+pacman -Scc --noconfirm 2>/dev/null || true
 
 cat > "$ROOTFS_DIR/opt/launcher/run.sh" <<'EOF'
 #!/bin/bash
@@ -211,6 +247,7 @@ chmod +x "$ROOTFS_DIR/opt/launcher/run.sh"
 # Install diagnostics and input test scripts into the image
 install -Dm755 "${PROJECT_ROOT}/scripts/diagnostics.sh" "$ROOTFS_DIR/usr/local/bin/loki-diagnostics"
 install -Dm755 "${PROJECT_ROOT}/scripts/streamos-input-test.sh" "$ROOTFS_DIR/usr/local/bin/streamos-input-test"
+install -Dm755 "${PROJECT_ROOT}/scripts/streamos-storage-status.sh" "$ROOTFS_DIR/usr/local/bin/streamos-storage-status"
 
 # ============================================================================
 # Step 5: Bootloader configuration
@@ -247,7 +284,8 @@ arch-chroot "$ROOTFS_DIR" systemctl disable bluetooth.service 2>/dev/null || tru
 
 log_info "Step 6/6: Creating bootable disk image..."
 
-dd if=/dev/zero of="$IMG_FILE" bs=1M count=$((IMG_SIZE_GB * 1024)) status=progress 2>/dev/null
+# Sparse allocation — avoids writing 8 GB of zeros (saves CI disk space and time)
+truncate -s "${IMG_SIZE_GB}G" "$IMG_FILE"
 
 parted -s "$IMG_FILE" mklabel gpt
 parted -s "$IMG_FILE" mkpart primary fat32 1MiB "${BOOT_SIZE_MB}MiB"
@@ -311,6 +349,10 @@ LOOP_DEV=""
 rmdir "$MNT_BOOT" "$MNT_SYSTEM"
 MNT_BOOT=""
 MNT_SYSTEM=""
+
+# Free build tree before checksum/upload (CI runners have limited disk)
+log_info "Removing staging rootfs to reclaim disk space..."
+rm -rf "$ROOTFS_DIR"
 
 log_info "Image created: $IMG_FILE"
 

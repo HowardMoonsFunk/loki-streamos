@@ -11,7 +11,6 @@ on:
       - 'hardware/**'
       - 'launcher/**'
       - 'scripts/**'
-      - 'docs/**'
       - '.github/workflows/build-image.yml'
   pull_request:
   workflow_dispatch:
@@ -29,9 +28,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Update system and install dependencies
+      - name: Prepare build host
         run: |
           pacman -Syu --noconfirm
+          pacman -Scc --noconfirm || true
           pacman -S --noconfirm \
             arch-install-scripts \
             parted \
@@ -40,29 +40,51 @@ jobs:
             mtools \
             squashfs-tools \
             efibootmgr \
+            meson \
+            ninja \
+            wayland \
+            wayland-protocols \
+            libxkbcommon \
+            cairo \
+            pango \
+            scdoc \
+            pkgconf \
+            gcc \
             git \
             coreutils
-
-      - name: Show build environment
-        run: |
-          echo "=== Arch Linux Version ==="
-          cat /etc/os-release
-          echo "=== Available disk space ==="
+          echo "=== Disk before build ==="
           df -h /
-          echo "=== Kernel Version ==="
-          uname -r
 
       - name: Build Loki StreamOS image
+        env:
+          GITHUB_SHA: ${{ github.sha }}
         run: |
-          chmod +x scripts/build-image.sh scripts/diagnostics.sh scripts/streamos-input-test.sh launcher/menu.sh
+          chmod +x scripts/build-image.sh scripts/diagnostics.sh \
+            scripts/streamos-input-test.sh scripts/streamos-storage-status.sh \
+            scripts/validate-image.sh launcher/menu.sh
           bash ./scripts/build-image.sh
 
-      - name: Verify image
+      - name: Verify checksum file
         run: |
-          ls -lh build-artifacts/
-          sha256sum build-artifacts/*.img
-          file build-artifacts/loki-streamos-*.img
-          test -f build-artifacts/loki-streamos-*.sha256
+          cd build-artifacts
+          ls -lh
+          test -f loki-streamos-*.img
+          test -f loki-streamos-*.sha256
+          sha256sum -c loki-streamos-*.sha256
+          file loki-streamos-*.img
+
+      - name: Structurally validate image
+        run: |
+          bash ./scripts/validate-image.sh build-artifacts/loki-streamos-*.img
+
+      - name: Report artifact metadata
+        run: |
+          cd build-artifacts
+          echo "commit=${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "img=$(ls loki-streamos-*.img)" >> "$GITHUB_STEP_SUMMARY"
+          echo "size=$(du -h loki-streamos-*.img | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+          echo "sha256=$(cat loki-streamos-*.sha256)" >> "$GITHUB_STEP_SUMMARY"
+          df -h /
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -109,13 +131,3 @@ jobs:
           cd loki-streamos-image
           file *.img
           du -h *.img
-
-      - name: Summary
-        run: |
-          echo "Image build and verification successful"
-          echo ""
-          echo "Next steps:"
-          echo "1. Download image from Actions artifacts"
-          echo "2. Write to USB: sudo dd if=loki-streamos-*.img of=/dev/sdX bs=4M"
-          echo "3. Boot on Loki Zero (hold Volume Down for boot menu)"
-          echo "4. Run: loki-diagnostics"
