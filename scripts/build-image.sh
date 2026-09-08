@@ -225,7 +225,7 @@ build_wvkbd_host() {
         pacman -S --noconfirm --needed \
             meson ninja wayland wayland-protocols libxkbcommon cairo pango scdoc pkgconf gcc
     fi
-    curl -fsSL "${WVKBD_TARBALL_URL}" -o "${WVKBD_BUILD}/wvkbd.tar.gz"
+    curl -fsSL -L "${WVKBD_TARBALL_URL}" -o "${WVKBD_BUILD}/wvkbd.tar.gz"
     tar -xzf "${WVKBD_BUILD}/wvkbd.tar.gz" -C "${WVKBD_BUILD}"
     cd "${WVKBD_BUILD}/wvkbd-${WVKBD_VERSION}"
     meson setup build --prefix=/usr -Dbuildtype=release
